@@ -201,7 +201,7 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- Documentation KB ---
-const DOCS_BASE = '/root/.openclaw/workspace/retbaa-os-architecture';
+const DOCS_BASE = process.env.DOCS_PATH || "/root/kemia-docs";
 app.get('/api/docs', authenticate, (req, res) => {
   const docs = [];
   try {
