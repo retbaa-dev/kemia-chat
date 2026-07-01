@@ -200,6 +200,34 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// --- Documentation KB ---
+const DOCS_BASE = '/root/.openclaw/workspace/retbaa-os-architecture';
+app.get('/api/docs', authenticate, (req, res) => {
+  const docs = [];
+  try {
+    const walk = (dir, prefix) => {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        if (e.name.startsWith('.')) continue;
+        if (e.name === 'node_modules' || e.name === 'logs' || e.name === '.git') continue;
+        const full = path.join(dir, e.name);
+        const rel = path.join(prefix, e.name);
+        if (e.isDirectory()) {
+          docs.push({ type: 'dir', name: e.name, path: rel });
+          walk(full, rel);
+        } else if (e.name.endsWith('.md')) {
+          const content = fs.readFileSync(full, 'utf-8');
+          docs.push({ type: 'file', name: e.name, path: rel, size: content.length, content });
+        }
+      }
+    };
+    if (fs.existsSync(DOCS_BASE)) walk(DOCS_BASE, '');
+    res.json({ docs, count: docs.filter(d => d.type === 'file').length });
+  } catch (err) {
+    res.json({ docs: [], error: err.message });
+  }
+});
+
 // --- LLM Call (rate limited côté serveur) ---
 async function callLLM(messages) {
   if (ANTHROPIC_KEY) {

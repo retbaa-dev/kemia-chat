@@ -504,6 +504,9 @@
           <button class="nav-item" data-view="exec" onclick="switchMainView('chat'); showExecHint()">
             <span class="icon">⌨️</span> Terminal
           </button>
+          <button class="nav-item" data-view="docs" onclick="switchMainView('docs');switchTab('docs')">
+            <span class="icon">📚</span> Documentation KB
+          </button>
           <div style="border-top:1px solid var(--border);margin:8px 0;padding-top:8px"></div>
           <div style="font-size:10px;letter-spacing:2px;color:var(--text-dim);padding:4px 12px 8px;text-transform:uppercase">Liens rapides</div>
           <a class="nav-item" href="https://github.com/retbaa-dev/kemia-chat" target="_blank" style="text-decoration:none">
@@ -523,6 +526,7 @@
           <button class="tab-bar-item active" data-tab="chat" onclick="switchTab('chat')">Chat</button>
           <button class="tab-bar-item" data-tab="logs" onclick="switchTab('logs')">Logs</button>
           <button class="tab-bar-item" data-tab="state" onclick="switchTab('state')">État</button>
+          <button class="tab-bar-item" data-tab="docs" onclick="switchTab('docs')">📚 Docs</button>
           <span style="flex:1"></span>
           <span style="font-size:10px;color:var(--text-dim);letter-spacing:1px">Kemia v2.0</span>
         </div>
@@ -564,6 +568,22 @@
             <button class="state-refresh" onclick="loadState()">⟳ Actualiser</button>
           </div>
           <div class="state-content" id="state-content">Chargement…</div>
+        </div>
+
+        <!-- DOCS VIEW -->
+        <div id="docs-view">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--border);flex-shrink:0">
+            <span style="font-size:12px;color:var(--text-dim);letter-spacing:1px">📚 Knowledge Base — Retbaa OS</span>
+            <button class="state-refresh" onclick="loadDocs()">⟳ Actualiser</button>
+          </div>
+          <div style="display:flex;flex:1;min-height:0">
+            <div id="docs-sidebar" style="width:240px;overflow-y:auto;border-right:1px solid var(--border);padding:8px;flex-shrink:0">
+              <div style="color:var(--text-dim);font-size:12px;padding:8px">Chargement…</div>
+            </div>
+            <div id="docs-content" style="flex:1;overflow-y:auto;padding:20px 24px;font-size:13px;line-height:1.7;color:var(--text);white-space:pre-wrap">
+              <div style="color:var(--text-dim);font-style:italic">Sélectionnez un document dans la liste</div>
+            </div>
+          </div>
         </div>
 
       </div>
@@ -693,8 +713,10 @@
       document.getElementById('chat-view').style.display = tab === 'chat' ? 'flex' : 'none';
       document.getElementById('logs-view').style.display = tab === 'logs' ? 'flex' : 'none';
       document.getElementById('state-view').style.display = tab === 'state' ? 'flex' : 'none';
+      document.getElementById('docs-view').style.display = tab === 'docs' ? 'flex' : 'none';
       if (tab === 'logs') refreshLogs();
       if (tab === 'state') loadState();
+      if (tab === 'docs') loadDocs();
     }
 
     // --- STATE ---
@@ -736,6 +758,54 @@
       const txt = document.getElementById('sidebar-status-text');
       dot.className = 'dot ' + s;
       txt.textContent = s === 'online' ? 'Connecté' : s === 'offline' ? 'Déconnecté' : 'Erreur';
+    }
+
+    // --- DOCS ---
+    function loadDocs() {
+      const sidebar = document.getElementById('docs-sidebar');
+      const content = document.getElementById('docs-content');
+      fetch('/api/docs', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(r => r.json())
+        .then(d => {
+          if (!d.docs || !d.docs.length) {
+            sidebar.innerHTML = '<div style="color:var(--text-dim);font-size:12px;padding:8px">Aucun document</div>';
+            return;
+          }
+          // Build sidebar tree
+          const files = d.docs.filter(f => f.type === 'file');
+          sidebar.innerHTML = '<div style="font-size:10px;letter-spacing:2px;color:var(--text-dim);text-transform:uppercase;padding:8px 12px 4px">' + d.count + ' fichiers</div>' + 
+            files.map(f => {
+              const icon = f.name.includes('ADR') ? '📋' : f.name.includes('Security') ? '🔒' : f.name.includes('backup') ? '💾' : '📄';
+              const label = f.name.replace(/\.md$/,'').replace(/^ADR-\d+-/,'').replace(/retbaa-/g,'');
+              return '<div class="doc-item" data-path="'+f.path+'" onclick="openDoc(\''+f.path+'\',\''+escHtml(f.content)+'\')" style="padding:6px 12px;margin:1px 0;border-radius:6px;cursor:pointer;font-size:12px;color:var(--text-dim);transition:all .2s;display:flex;align-items:center;gap:6px">'+
+                '<span>'+icon+'</span> <span>'+escHtml(label)+'</span></div>';
+            }).join('');
+          // Click handler via delegation
+          sidebar.addEventListener('click', function(e) {
+            const item = e.target.closest('.doc-item');
+            if (!item) return;
+            document.querySelectorAll('.doc-item').forEach(el => el.style.background = '');
+            item.style.background = 'rgba(239,192,212,0.1)';
+          });
+        })
+        .catch(err => { sidebar.innerHTML = '<div style="color:var(--red);padding:8px">Erreur: '+err.message+'</div>'; });
+    }
+
+    function openDoc(path, content) {
+      const el = document.getElementById('docs-content');
+      // Simple markdown-like rendering
+      let html = escHtml(content)
+        .replace(/^### (.+)$/gm, '<div style="font-size:14px;font-weight:600;color:var(--rose);margin:20px 0 8px">$1</div>')
+        .replace(/^## (.+)$/gm, '<div style="font-size:16px;font-weight:600;color:var(--text);margin:24px 0 10px;border-bottom:1px solid var(--border);padding-bottom:4px">$1</div>')
+        .replace(/^# (.+)$/gm, '<div style="font-size:20px;font-weight:300;letter-spacing:1px;margin:0 0 16px">$1</div>')
+        .replace(/^- (.+)$/gm, '<div style="padding:1px 0 1px 16px;position:relative"><span style="position:absolute;left:0">•</span>$1</div>')
+        .replace(/^\d+\. (.+)$/gm, '<div style="padding:1px 0 1px 16px">$1</div>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code style="background:rgba(248,245,240,0.06);padding:1px 5px;border-radius:3px;font-family:var(--mono);font-size:12px">$1</code>')
+        .replace(/^\|/gm, '<br>|')
+        .replace(/\n\n/g, '<br><br>');
+      el.innerHTML = '<div style="font-size:10px;letter-spacing:1px;color:var(--text-dim);margin-bottom:8px">📄 ' + escHtml(path) + '</div>' + html;
+      el.scrollTop = 0;
     }
 
     // --- UTILS ---
