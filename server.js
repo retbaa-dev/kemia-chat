@@ -115,29 +115,23 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '100kb' }));
 
-// --- Auto-login (soft auth, pas de mot de passe) ---
-app.post('/api/auto-login', rateLimit, (req, res) => {
+// --- Login par code PIN (4 chiffres) ---
+const PIN_HASH = crypto.createHash('sha256').update(process.env.PIN_CODE || '0000').digest('hex');
+
+app.post('/api/login', rateLimit, (req, res) => {
+  const { pin } = req.body;
+  if (!pin || typeof pin !== 'string') {
+    return res.status(400).json({ error: 'Code PIN requis' });
+  }
+  const inputHash = crypto.createHash('sha256').update(pin).digest('hex');
+  if (inputHash !== PIN_HASH) {
+    log('AUTH', `PIN incorrect depuis ${req.ip}`);
+    return res.status(401).json({ error: 'Code incorrect' });
+  }
   const token = uuidv4();
   sessions.set(token, { id: token, authenticated: true, createdAt: Date.now() });
-  log('AUTH', `Auto-login: ${token.substring(0,8)}... depuis ${req.ip}`);
+  log('AUTH', `Login PIN: ${token.substring(0,8)}...`);
   res.json({ token });
-});
-
-// Fallback login (mot de passe) pour admin
-app.post('/api/login', rateLimit, (req, res) => {
-  const { password } = req.body;
-  if (!password || typeof password !== 'string') {
-    return res.status(400).json({ error: 'Mot de passe requis' });
-  }
-  const adminPass = process.env.ADMIN_PASSWORD;
-  if (!adminPass || password !== adminPass) {
-    log('SECURITY', `Admin login failed from ${req.ip}`);
-    return res.status(401).json({ error: 'Mot de passe incorrect' });
-  }
-  const token = uuidv4();
-  sessions.set(token, { id: token, authenticated: true, admin: true, createdAt: Date.now() });
-  log('SECURITY', `Admin login success: ${token.substring(0,8)}...`);
-  res.json({ token, admin: true });
 });
 
 app.get('/api/state', authenticate, async (req, res) => {

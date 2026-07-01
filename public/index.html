@@ -45,15 +45,21 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ===== LOADING SCREEN ===== */
-    #loading-screen {
+    /* ===== PIN SCREEN ===== */
+    #pin-screen {
       display: flex;
       align-items: center;
       justify-content: center;
       height: 100vh;
       background: var(--navy-dark);
       flex-direction: column;
-      gap: 16px;
+      gap: 24px;
+      position: relative;
+    }
+    #pin-screen::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 40%, rgba(239,192,212,0.04) 0%, transparent 60%);
     }
 
     /* ===== LAYOUT ===== */
@@ -398,11 +404,28 @@
 <body>
 
   <!-- ===== LOGIN ===== -->
-  <div id="loading-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--navy-dark);flex-direction:column;gap:16px">
+  <div id="pin-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--navy-dark);flex-direction:column;gap:24px">
     <div style="font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--rose);font-weight:500">Retbaa OS</div>
-    <div style="font-size:24px;font-weight:300;letter-spacing:2px;color:var(--text)">Kemia</div>
-    <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--rose);border-radius:50%;animation:spin .8s linear infinite"></div>
-    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+    <div style="font-size:20px;font-weight:300;letter-spacing:2px;color:var(--text)">Kemia</div>
+    <div style="display:flex;gap:10px;margin-top:12px">
+      <input id="pin-0" maxlength="1" class="pin-input" autofocus>
+      <input id="pin-1" maxlength="1" class="pin-input">
+      <input id="pin-2" maxlength="1" class="pin-input">
+      <input id="pin-3" maxlength="1" class="pin-input">
+    </div>
+    <div id="pin-error" style="font-size:12px;color:var(--red);min-height:18px"></div>
+    <style>
+      .pin-input {
+        width:48px;height:56px;text-align:center;font-size:22px;font-family:var(--mono);
+        border:1px solid var(--border);border-radius:var(--radius-sm);
+        background:rgba(248,245,240,0.04);color:var(--text);
+        outline:none;transition:border-color .3s,box-shadow .3s;
+        caret-color:var(--rose);
+      }
+      .pin-input:focus { border-color:var(--rose);box-shadow:0 0 0 2px rgba(239,192,212,0.15); }
+      .pin-input.shake { animation:shake .4s ease; }
+      @keyframes shake{25%{transform:translateX(-6px)}50%{transform:translateX(6px)}75%{transform:translateX(-3px)}}
+    </style>
   </div>
 
   <!-- ===== APP ===== -->
@@ -527,17 +550,21 @@
     let logInterval = null;
     let stateInterval = null;
 
-    // --- AUTO-LOGIN (pas de mot de passe) ---
-    function autoLogin() {
-      fetch('/api/auto-login', {
+    // --- PIN LOGIN ---
+    function submitPin() {
+      const pin = [0,1,2,3].map(i => document.getElementById('pin-'+i).value).join('');
+      if (pin.length !== 4) return;
+      document.getElementById('pin-error').textContent = '';
+      fetch('/api/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
       })
       .then(r => r.json())
       .then(d => {
         if (d.token) {
           token = d.token;
-          document.getElementById('loading-screen').style.display = 'none';
+          document.getElementById('pin-screen').style.display = 'none';
           document.getElementById('app').style.display = 'block';
           connectWS();
           setStatus('online');
@@ -545,12 +572,15 @@
           startPolling();
           setTimeout(() => document.getElementById('chat-input')?.focus(), 500);
         } else {
-          console.error('Auto-login failed');
+          document.getElementById('pin-error').textContent = 'Code incorrect';
+          document.querySelectorAll('.pin-input').forEach(el => { el.classList.add('shake'); el.value = ''; });
+          setTimeout(() => document.querySelectorAll('.pin-input').forEach(el => el.classList.remove('shake')), 400);
+          document.getElementById('pin-0').focus();
         }
       })
-      .catch(e => {
-        console.error('Auto-login error:', e);
-        document.getElementById('loading-screen').innerHTML = '<div style="color:var(--red);text-align:center;padding:40px">⚠️ Erreur de connexion au serveur</div>';
+      .catch(() => {
+        document.getElementById('pin-error').textContent = 'Erreur de connexion';
+        document.getElementById('pin-0').focus();
       });
     }
 
@@ -561,8 +591,9 @@
       if (stateInterval) clearInterval(stateInterval);
       token = null;
       document.getElementById('app').style.display = 'none';
-      document.getElementById('loading-screen').style.display = 'flex';
-      document.getElementById('loading-screen').innerHTML = '<div style="color:var(--text-dim)">Déconnecté. Rechargez la page.</div>';
+      document.getElementById('pin-screen').style.display = 'flex';
+      document.querySelectorAll('.pin-input').forEach(el => el.value = '');
+      document.getElementById('pin-0').focus();
     }
 
     // --- WEBSOCKET ---
@@ -740,8 +771,21 @@
       return d.innerHTML;
     }
 
-    // Auto-login au chargement de la page
-document.addEventListener('DOMContentLoaded', autoLogin);
+    // --- PIN input helpers ---
+    document.querySelectorAll('.pin-input').forEach((input, idx) => {
+      input.addEventListener('input', function() {
+        this.value = this.value.replace(/\D/g, '').slice(0,1);
+        if (this.value && idx < 3) document.getElementById('pin-'+(idx+1)).focus();
+        if (idx === 3 && this.value) submitPin();
+      });
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Backspace' && !this.value && idx > 0)
+          document.getElementById('pin-'+(idx-1)).focus();
+        if (e.key === 'Enter') submitPin();
+      });
+      // Focus first input on mount
+      if (idx === 0) setTimeout(() => this.focus(), 100);
+    });
   </script>
 </body>
 </html>
