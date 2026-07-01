@@ -45,84 +45,16 @@
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ===== LOGIN ===== */
-    #login-screen {
+    /* ===== LOADING SCREEN ===== */
+    #loading-screen {
       display: flex;
       align-items: center;
       justify-content: center;
       height: 100vh;
       background: var(--navy-dark);
-      position: relative;
+      flex-direction: column;
+      gap: 16px;
     }
-    #login-screen::before {
-      content: '';
-      position: absolute; inset: 0;
-      background: radial-gradient(ellipse at 50% 40%, rgba(239,192,212,0.05) 0%, transparent 60%);
-    }
-    .login-card {
-      position: relative;
-      background: rgba(248,245,240,0.03);
-      backdrop-filter: blur(20px);
-      border: 1px solid var(--border);
-      border-radius: var(--radius-lg);
-      padding: 56px 40px;
-      width: 380px;
-      max-width: 90vw;
-      text-align: center;
-    }
-    .login-logo {
-      font-size: 14px;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: var(--rose);
-      margin-bottom: 4px;
-      font-weight: 500;
-    }
-    .login-title {
-      font-size: 26px;
-      font-weight: 300;
-      letter-spacing: 2px;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    .login-subtitle {
-      font-size: 11px;
-      letter-spacing: 2px;
-      color: var(--text-dim);
-      margin-bottom: 36px;
-    }
-    .login-card input {
-      width: 100%;
-      padding: 14px 18px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: rgba(248,245,240,0.04);
-      color: var(--text);
-      font-family: var(--font);
-      font-size: 14px;
-      outline: none;
-      transition: border-color .3s;
-    }
-    .login-card input:focus { border-color: var(--rose); }
-    .login-card input::placeholder { color: var(--text-dim); }
-    .login-btn {
-      width: 100%;
-      margin-top: 14px;
-      padding: 14px;
-      border: none;
-      border-radius: var(--radius-sm);
-      background: var(--rose);
-      color: var(--navy-dark);
-      font-family: var(--font);
-      font-weight: 600;
-      font-size: 13px;
-      letter-spacing: 1px;
-      cursor: pointer;
-      transition: opacity .3s;
-    }
-    .login-btn:hover { opacity: .85; }
-    .login-error { color: var(--red); font-size: 12px; margin-top: 12px; min-height: 18px; }
-    .login-version { position: absolute; bottom: 24px; font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
 
     /* ===== LAYOUT ===== */
     #app { display: none; height: 100vh; }
@@ -466,16 +398,11 @@
 <body>
 
   <!-- ===== LOGIN ===== -->
-  <div id="login-screen">
-    <div class="login-card">
-      <div class="login-logo">Retbaa OS</div>
-      <div class="login-title">Kemia</div>
-      <div class="login-subtitle">Chief of Staff · Interface Web</div>
-      <input type="password" id="password-input" placeholder="Mot de passe" autocomplete="off" spellcheck="false">
-      <button class="login-btn" onclick="login()">Accéder</button>
-      <div class="login-error" id="login-error"></div>
-    </div>
-    <div class="login-version">v2.0</div>
+  <div id="loading-screen" style="display:flex;align-items:center;justify-content:center;height:100vh;background:var(--navy-dark);flex-direction:column;gap:16px">
+    <div style="font-size:14px;letter-spacing:4px;text-transform:uppercase;color:var(--rose);font-weight:500">Retbaa OS</div>
+    <div style="font-size:24px;font-weight:300;letter-spacing:2px;color:var(--text)">Kemia</div>
+    <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--rose);border-radius:50%;animation:spin .8s linear infinite"></div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
   </div>
 
   <!-- ===== APP ===== -->
@@ -600,33 +527,31 @@
     let logInterval = null;
     let stateInterval = null;
 
-    // --- LOGIN ---
-    function login() {
-      const pw = document.getElementById('password-input').value;
-      if (!pw) return;
-      document.getElementById('login-error').textContent = '';
-
-      fetch('/api/login', {
+    // --- AUTO-LOGIN (pas de mot de passe) ---
+    function autoLogin() {
+      fetch('/api/auto-login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password: pw })
+        headers: { 'Content-Type': 'application/json' }
       })
       .then(r => r.json())
       .then(d => {
         if (d.token) {
           token = d.token;
-          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('loading-screen').style.display = 'none';
           document.getElementById('app').style.display = 'block';
           connectWS();
           setStatus('online');
           loadState();
           startPolling();
-          document.getElementById('chat-input').focus();
+          setTimeout(() => document.getElementById('chat-input')?.focus(), 500);
         } else {
-          document.getElementById('login-error').textContent = 'Mot de passe incorrect';
+          console.error('Auto-login failed');
         }
       })
-      .catch(() => { document.getElementById('login-error').textContent = 'Erreur de connexion'; });
+      .catch(e => {
+        console.error('Auto-login error:', e);
+        document.getElementById('loading-screen').innerHTML = '<div style="color:var(--red);text-align:center;padding:40px">⚠️ Erreur de connexion au serveur</div>';
+      });
     }
 
     // --- LOGOUT ---
@@ -636,8 +561,8 @@
       if (stateInterval) clearInterval(stateInterval);
       token = null;
       document.getElementById('app').style.display = 'none';
-      document.getElementById('login-screen').style.display = 'flex';
-      document.getElementById('password-input').value = '';
+      document.getElementById('loading-screen').style.display = 'flex';
+      document.getElementById('loading-screen').innerHTML = '<div style="color:var(--text-dim)">Déconnecté. Rechargez la page.</div>';
     }
 
     // --- WEBSOCKET ---
@@ -815,7 +740,8 @@
       return d.innerHTML;
     }
 
-    document.getElementById('password-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+    // Auto-login au chargement de la page
+document.addEventListener('DOMContentLoaded', autoLogin);
   </script>
 </body>
 </html>

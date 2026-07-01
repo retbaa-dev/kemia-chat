@@ -24,10 +24,8 @@ try {
   }
 } catch (e) { /* silent */ }
 
-// --- Configuration (TOUT vient de l'environnement) ---
+// --- Configuration ---
 const PORT = process.env.PORT || 8888;
-const SESSION_PASSWORD = process.env.CHATPASSWORD;
-const SESSION_HASH = crypto.createHash('sha256').update(SESSION_PASSWORD || 'fallback-never-match').digest('hex');
 const KEMIA_STATE_URL = process.env.KEMIA_STATE_URL || 'https://nmmxamnm.gensparkclaw.com/kemia-state';
 const LOG_DIR = path.join(__dirname, 'logs');
 const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 24h
@@ -40,13 +38,6 @@ const DEEPSEEK_KEY = process.env.DEEPSEEK_API_KEY || '';
 const LLM_PROVIDER = ANTHROPIC_KEY ? 'Anthropic Claude' : (DEEPSEEK_KEY ? 'DeepSeek' : 'None');
 
 if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
-
-// --- Démarrage sécurisé : vérifie que le mot de passe n'est pas un fallback ---
-if (!SESSION_PASSWORD || SESSION_PASSWORD === 'retbaa2026' || SESSION_PASSWORD.length < 8) {
-  log('SECURITY', '⚠️  CHATPASSWORD non défini ou fallback détecté dans .env !');
-  log('SECURITY', '⚠️  Générez un mot de passe avec : node -e "console.log(crypto.randomBytes(24).toString(\"hex\"))"');
-  process.exit(1);
-}
 
 const app = express();
 const server = http.createServer(app);
@@ -124,21 +115,29 @@ app.use((req, res, next) => {
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json({ limit: '100kb' }));
 
-// --- Login (rate limited) ---
+// --- Auto-login (soft auth, pas de mot de passe) ---
+app.post('/api/auto-login', rateLimit, (req, res) => {
+  const token = uuidv4();
+  sessions.set(token, { id: token, authenticated: true, createdAt: Date.now() });
+  log('AUTH', `Auto-login: ${token.substring(0,8)}... depuis ${req.ip}`);
+  res.json({ token });
+});
+
+// Fallback login (mot de passe) pour admin
 app.post('/api/login', rateLimit, (req, res) => {
   const { password } = req.body;
   if (!password || typeof password !== 'string') {
     return res.status(400).json({ error: 'Mot de passe requis' });
   }
-  const inputHash = crypto.createHash('sha256').update(password).digest('hex');
-  if (inputHash !== SESSION_HASH) {
-    log('SECURITY', `Login failed from ${req.ip}`);
+  const adminPass = process.env.ADMIN_PASSWORD;
+  if (!adminPass || password !== adminPass) {
+    log('SECURITY', `Admin login failed from ${req.ip}`);
     return res.status(401).json({ error: 'Mot de passe incorrect' });
   }
   const token = uuidv4();
-  sessions.set(token, { id: token, authenticated: true, createdAt: Date.now() });
-  log('SECURITY', `Login success: ${token.substring(0,8)}...`);
-  res.json({ token });
+  sessions.set(token, { id: token, authenticated: true, admin: true, createdAt: Date.now() });
+  log('SECURITY', `Admin login success: ${token.substring(0,8)}...`);
+  res.json({ token, admin: true });
 });
 
 app.get('/api/state', authenticate, async (req, res) => {
