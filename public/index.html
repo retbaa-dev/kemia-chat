@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kemia · Retbaa OS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ===== CSS VARIABLES ===== */
+    :root {
+      --navy: #0F2A4B;
+      --navy-dark: #0A1E36;
+      --navy-light: #1A3A6B;
+      --rose: #EFC0D4;
+      --rose-light: #F5D9E6;
+      --cream: #F8F5F0;
+      --cream-dark: #E8E0D5;
+      --text: #F8F5F0;
+      --text-dim: rgba(248,245,240,0.4);
+      --text-muted: rgba(248,245,240,0.55);
+      --border: rgba(239,192,212,0.12);
+      --border-hover: rgba(239,192,212,0.25);
+      --green: #4CAF50;
+      --red: #C45B6A;
+      --amber: #FFA726;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --radius-lg: 16px;
+      --shadow: 0 4px 24px rgba(0,0,0,0.2);
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --mono: 'DM Mono', 'JetBrains Mono', monospace;
+      --sidebar-w: 280px;
+    }
+
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font);
+      background: var(--navy-dark);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== LOGIN ===== */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: var(--navy-dark);
+      position: relative;
+    }
+    #login-screen::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 40%, rgba(239,192,212,0.05) 0%, transparent 60%);
+    }
+    .login-card {
+      position: relative;
+      background: rgba(248,245,240,0.03);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 56px 40px;
+      width: 380px;
+      max-width: 90vw;
+      text-align: center;
+    }
+    .login-logo {
+      font-size: 14px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--rose);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+    .login-title {
+      font-size: 26px;
+      font-weight: 300;
+      letter-spacing: 2px;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+    .login-subtitle {
+      font-size: 11px;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      margin-bottom: 36px;
+    }
+    .login-card input {
+      width: 100%;
+      padding: 14px 18px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(248,245,240,0.04);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      outline: none;
+      transition: border-color .3s;
+    }
+    .login-card input:focus { border-color: var(--rose); }
+    .login-card input::placeholder { color: var(--text-dim); }
+    .login-btn {
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--rose);
+      color: var(--navy-dark);
+      font-family: var(--font);
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: opacity .3s;
+    }
+    .login-btn:hover { opacity: .85; }
+    .login-error { color: var(--red); font-size: 12px; margin-top: 12px; min-height: 18px; }
+    .login-version { position: absolute; bottom: 24px; font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+    /* ===== LAYOUT ===== */
+    #app { display: none; height: 100vh; }
+
+    .layout {
+      display: flex;
+      height: 100vh;
+      background: var(--navy-dark);
+    }
+
+    /* ===== SIDEBAR ===== */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: rgba(10,30,54,0.95);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 20px 20px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-brand {
+      font-size: 12px;
+      letter-spacing: 3px;
+      color: var(--rose);
+      font-weight: 500;
+      text-transform: uppercase;
+    }
+    .sidebar-brand span { color: var(--text); font-weight: 300; }
+    .sidebar-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+    .sidebar-status .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .sidebar-status .dot.online { background: var(--green); animation: pulse 2s infinite; }
+    .sidebar-status .dot.offline { background: var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+    /* Nav */
+    .sidebar-nav {
+      flex: 1;
+      padding: 8px 12px;
+      overflow-y: auto;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      color: var(--text-dim);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all .2s;
+      border: none;
+      background: none;
+      width: 100%;
+      text-align: left;
+      font-family: var(--font);
+    }
+    .nav-item:hover { background: rgba(239,192,212,0.06); color: var(--text); }
+    .nav-item.active {
+      background: rgba(239,192,212,0.1);
+      color: var(--rose);
+    }
+    .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+    .nav-item .badge {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      background: rgba(239,192,212,0.1);
+      color: var(--rose);
+    }
+
+    .sidebar-footer {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+    }
+    .logout-btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: transparent;
+      color: var(--text-dim);
+      font-family: var(--font);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all .3s;
+    }
+    .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+    /* ===== MAIN PANEL ===== */
+    .main-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* Tab header inside main */
+    .tab-bar {
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,30,54,0.5);
+      gap: 0;
+      flex-shrink: 0;
+    }
+    .tab-bar-item {
+      padding: 16px 20px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all .3s;
+      background: none;
+      border-top: none;
+      border-left: none;
+      border-right: none;
+      font-family: var(--font);
+    }
+    .tab-bar-item:hover { color: var(--text); }
+    .tab-bar-item.active {
+      color: var(--rose);
+      border-bottom-color: var(--rose);
+    }
+
+    /* ===== CHAT AREA ===== */
+    #chat-view {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+    }
+    #logs-view { display: none; flex-direction: column; flex: 1; min-height: 0; }
+    #state-view { display: none; flex-direction: column; flex: 1; min-height: 0; }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chat-messages::-webkit-scrollbar { width: 4px; }
+    .chat-messages::-webkit-scrollbar-track { background: transparent; }
+    .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .msg {
+      max-width: 78%;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 14px;
+      line-height: 1.65;
+      animation: fadeIn .25s ease;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    .msg.user {
+      align-self: flex-end;
+      background: var(--cream);
+      color: var(--navy-dark);
+      border-bottom-right-radius: 4px;
+    }
+    .msg.kemia {
+      align-self: flex-start;
+      background: rgba(248,245,240,0.04);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+    }
+    .msg.kemia .label {
+      font-size: 10px;
+      letter-spacing: 2px;
+      color: var(--rose);
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+    .msg.system {
+      align-self: center;
+      background: rgba(239,192,212,0.06);
+      font-size: 12px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      color: var(--text-dim);
+    }
+    .msg.exec-block {
+      align-self: stretch;
+      background: rgba(0,0,0,.3);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 12px 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.6;
+      color: rgba(248,245,240,.65);
+      max-height: 300px;
+      overflow: auto;
+      white-space: pre-wrap;
+      margin-top: 4px;
+    }
+    .msg.exec-block .cmd-line { color: var(--rose); margin-bottom: 4px; }
+
+    .typing-indicator {
+      align-self: flex-start;
+      padding: 12px 16px;
+      display: none;
+    }
+    .typing-indicator.active { display: block; }
+    .typing-dots { display: flex; gap: 5px; }
+    .typing-dots span {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--rose);
+      animation: bounce 1.4s infinite ease-in-out;
+    }
+    .typing-dots span:nth-child(1) { animation-delay: 0s; }
+    .typing-dots span:nth-child(2) { animation-delay: .2s; }
+    .typing-dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,80%,100%{transform:scale(.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
+
+    /* Input */
+    .chat-input-area {
+      border-top: 1px solid var(--border);
+      padding: 14px 24px 16px;
+      background: rgba(10,30,54,.8);
+      flex-shrink: 0;
+    }
+    .input-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .input-row textarea {
+      flex: 1;
+      padding: 11px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: rgba(248,245,240,.03);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      resize: none;
+      outline: none;
+      min-height: 40px;
+      max-height: 120px;
+      line-height: 1.5;
+      transition: border-color .3s;
+    }
+    .input-row textarea:focus { border-color: var(--border-hover); }
+    .input-row textarea::placeholder { color: var(--text-dim); }
+    .send-btn {
+      width: 40px; height: 40px;
+      border: none;
+      border-radius: var(--radius-sm);
+      background: var(--rose);
+      color: var(--navy-dark);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity .3s;
+      flex-shrink: 0;
+    }
+    .send-btn:hover { opacity: .8; }
+    .send-btn:disabled { opacity: .25; cursor: not-allowed; }
+    .send-btn svg { width: 16px; height: 16px; }
+
+    /* ===== LOGS VIEW ===== */
+    .logs-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 24px;
+      font-family: var(--mono);
+      font-size: 11.5px;
+      line-height: 1.8;
+      color: var(--text-dim);
+    }
+    .logs-content .line { padding: 1px 0; border-bottom: 1px solid rgba(248,245,240,.02); }
+    .logs-content .line.info { color: var(--text-dim); }
+    .logs-content .line.exec { color: var(--rose); }
+    .logs-content .line.error { color: var(--red); }
+    .logs-content .line.chat { color: var(--text-muted); }
+    .logs-content .line.security { color: var(--amber); }
+
+    /* ===== STATE VIEW ===== */
+    .state-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--text);
+      white-space: pre-wrap;
+    }
+    .state-refresh {
+      padding: 8px 16px;
+      background: rgba(239,192,212,.08);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--rose);
+      cursor: pointer;
+      font-size: 12px;
+      font-family: var(--font);
+      transition: all .3s;
+      margin-right: 20px;
+    }
+    .state-refresh:hover { background: rgba(239,192,212,.15); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .tab-bar { height: 46px; }
+      .tab-bar-item { padding: 14px 14px; font-size: 11px; }
+      .chat-messages { padding: 14px 16px; }
+      .msg { max-width: 92%; font-size: 13px; }
+      .chat-input-area { padding: 10px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== LOGIN ===== -->
+  <div id="login-screen">
+    <div class="login-card">
+      <div class="login-logo">Retbaa OS</div>
+      <div class="login-title">Kemia</div>
+      <div class="login-subtitle">Chief of Staff · Interface Web</div>
+      <input type="password" id="password-input" placeholder="Mot de passe" autocomplete="off" spellcheck="false">
+      <button class="login-btn" onclick="login()">Accéder</button>
+      <div class="login-error" id="login-error"></div>
+    </div>
+    <div class="login-version">v2.0</div>
+  </div>
+
+  <!-- ===== APP ===== -->
+  <div id="app">
+    <div class="layout">
+
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="sidebar-brand">Kemia <span>· Railway</span></div>
+          <div class="sidebar-status">
+            <span class="dot" id="sidebar-dot"></span>
+            <span id="sidebar-status-text">Connexion</span>
+          </div>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-item active" data-view="chat" onclick="switchMainView('chat')">
+            <span class="icon">💬</span> Chat
+          </button>
+          <button class="nav-item" data-view="logs" onclick="switchMainView('logs')">
+            <span class="icon">📋</span> Logs système
+          </button>
+          <button class="nav-item" data-view="state" onclick="switchMainView('state')">
+            <span class="icon">📊</span> État système
+          </button>
+          <button class="nav-item" data-view="exec" onclick="switchMainView('chat'); showExecHint()">
+            <span class="icon">⌨️</span> Terminal
+          </button>
+        </nav>
+        <div class="sidebar-footer">
+          <button class="logout-btn" onclick="logout()">
+            <span>🚪</span> Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      <!-- MAIN -->
+      <div class="main-panel">
+        <div class="tab-bar">
+          <button class="tab-bar-item active" data-tab="chat" onclick="switchTab('chat')">Chat</button>
+          <button class="tab-bar-item" data-tab="logs" onclick="switchTab('logs')">Logs</button>
+          <button class="tab-bar-item" data-tab="state" onclick="switchTab('state')">État</button>
+          <span style="flex:1"></span>
+          <span style="font-size:10px;color:var(--text-dim);letter-spacing:1px">Kemia v2.0</span>
+        </div>
+
+        <!-- CHAT VIEW -->
+        <div id="chat-view">
+          <div class="chat-messages" id="chat-messages">
+            <div class="msg kemia">
+              <div class="label">Kemia Railway</div>
+              Bonjour Massata. Interface mise à jour v2.0. Je suis opérationnelle.
+            </div>
+          </div>
+          <div class="typing-indicator" id="typing-indicator">
+            <div class="typing-dots"><span></span><span></span><span></span></div>
+          </div>
+          <div class="chat-input-area">
+            <div class="input-row">
+              <textarea id="chat-input" rows="1" placeholder="Écrivez votre message…" onkeydown="handleInput(event)"></textarea>
+              <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- LOGS VIEW -->
+        <div id="logs-view">
+          <div class="logs-content" id="logs-content">
+            <div class="line info">Chargement des logs…</div>
+          </div>
+        </div>
+
+        <!-- STATE VIEW -->
+        <div id="state-view">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 24px;border-bottom:1px solid var(--border);flex-shrink:0">
+            <span style="font-size:12px;color:var(--text-dim);letter-spacing:1px">📊 État technique actuel</span>
+            <button class="state-refresh" onclick="loadState()">⟳ Actualiser</button>
+          </div>
+          <div class="state-content" id="state-content">Chargement…</div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===========================================================
+    // KEMIA RAILWAY — Client v2.0
+    // ===========================================================
+    let token = null;
+    let ws = null;
+    let isProcessing = false;
+    let logInterval = null;
+    let stateInterval = null;
+
+    // --- LOGIN ---
+    function login() {
+      const pw = document.getElementById('password-input').value;
+      if (!pw) return;
+      document.getElementById('login-error').textContent = '';
+
+      fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: pw })
+      })
+      .then(r => r.json())
+      .then(d => {
+        if (d.token) {
+          token = d.token;
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('app').style.display = 'block';
+          connectWS();
+          setStatus('online');
+          loadState();
+          startPolling();
+          document.getElementById('chat-input').focus();
+        } else {
+          document.getElementById('login-error').textContent = 'Mot de passe incorrect';
+        }
+      })
+      .catch(() => { document.getElementById('login-error').textContent = 'Erreur de connexion'; });
+    }
+
+    // --- LOGOUT ---
+    function logout() {
+      if (ws) ws.close();
+      if (logInterval) clearInterval(logInterval);
+      if (stateInterval) clearInterval(stateInterval);
+      token = null;
+      document.getElementById('app').style.display = 'none';
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('password-input').value = '';
+    }
+
+    // --- WEBSOCKET ---
+    function connectWS() {
+      const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      ws = new WebSocket(proto + '//' + location.host);
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'auth', token }));
+        document.getElementById('send-btn').disabled = false;
+      };
+
+      ws.onmessage = e => {
+        try { handleWS(JSON.parse(e.data)); } catch(_) {}
+      };
+
+      ws.onclose = () => {
+        document.getElementById('send-btn').disabled = true;
+        setStatus('offline');
+        setTimeout(connectWS, 3000);
+      };
+      ws.onerror = () => setStatus('error');
+    }
+
+    function handleWS(msg) {
+      switch (msg.type) {
+        case 'auth_ok': setStatus('online'); break;
+        case 'auth_error': logout(); break;
+        case 'typing': document.getElementById('typing-indicator').classList.toggle('active', msg.status); break;
+        case 'message': addMsg(msg.text, 'kemia'); isProcessing = false; document.getElementById('send-btn').disabled = false; break;
+        case 'error': addMsg('⚠️ ' + msg.message, 'system'); isProcessing = false; document.getElementById('send-btn').disabled = false; break;
+      }
+    }
+
+    // --- SEND ---
+    function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text || isProcessing || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+      addMsg(text, 'user');
+      input.value = '';
+      input.style.height = 'auto';
+      isProcessing = true;
+      document.getElementById('send-btn').disabled = true;
+      ws.send(JSON.stringify({ type: 'message', text }));
+    }
+
+    function handleInput(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+      const el = e.target;
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+    }
+
+    // --- ADD MESSAGE ---
+    function addMsg(text, sender) {
+      const c = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'msg ' + sender;
+      div.innerHTML = sender === 'kemia' ? `<div class="label">Kemia Railway</div>${escHtml(text)}` : escHtml(text);
+      c.appendChild(div);
+      c.scrollTop = c.scrollHeight;
+    }
+
+    // --- SWITCH VIEWS ---
+    function switchMainView(view) {
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-bar-item').forEach(el => el.classList.toggle('active', el.dataset.tab === tab));
+      document.getElementById('chat-view').style.display = tab === 'chat' ? 'flex' : 'none';
+      document.getElementById('logs-view').style.display = tab === 'logs' ? 'flex' : 'none';
+      document.getElementById('state-view').style.display = tab === 'state' ? 'flex' : 'none';
+      if (tab === 'logs') refreshLogs();
+      if (tab === 'state') loadState();
+    }
+
+    // --- STATE ---
+    function loadState() {
+      const el = document.getElementById('state-content');
+      el.textContent = 'Chargement…';
+      fetch('/api/state', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(r => r.json())
+        .then(d => { el.textContent = d.state || 'Indisponible'; })
+        .catch(() => { el.textContent = 'Erreur de chargement'; });
+    }
+
+    // --- LOGS ---
+    function startPolling() {
+      logInterval = setInterval(() => {
+        if (document.getElementById('logs-view').style.display === 'flex') refreshLogs();
+      }, 5000);
+    }
+
+    function refreshLogs() {
+      if (!token) return;
+      fetch('/api/logs?lines=120', { headers: { 'Authorization': 'Bearer ' + token } })
+        .then(r => r.json())
+        .then(d => {
+          const c = document.getElementById('logs-content');
+          if (d.logs && d.logs.length) {
+            c.innerHTML = d.logs.map(l => {
+              const cls = l.includes('[EXEC]') ? 'exec' : l.includes('[ERR]')||l.includes('[WS_ERR]') ? 'error' : l.includes('[SECURITY]') ? 'security' : l.includes('[CHAT]') ? 'chat' : 'info';
+              return '<div class="line ' + cls + '">' + escHtml(l) + '</div>';
+            }).join('');
+            c.scrollTop = c.scrollHeight;
+          }
+        }).catch(() => {});
+    }
+
+    // --- STATUS ---
+    function setStatus(s) {
+      const dot = document.getElementById('sidebar-dot');
+      const txt = document.getElementById('sidebar-status-text');
+      dot.className = 'dot ' + s;
+      txt.textContent = s === 'online' ? 'Connecté' : s === 'offline' ? 'Déconnecté' : 'Erreur';
+    }
+
+    // --- UTILS ---
+    function escHtml(s) {
+      const d = document.createElement('div');
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    document.getElementById('password-input').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+  </script>
+</body>
+</html>
